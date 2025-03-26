@@ -1,0 +1,2 @@
+E:/Moval/android/app/.cxx/RelWithDebInfo/126g5a4k/x86/CMakeFiles/edit_cache.dir
+E:/Moval/android/app/.cxx/RelWithDebInfo/126g5a4k/x86/CMakeFiles/rebuild_cache.dir
