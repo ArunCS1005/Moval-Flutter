@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "111804340355",
+    "project_id": "moval-a8153",
+    "storage_bucket": "moval-a8153.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:111804340355:android:5c81de991a4fad2885a3b6",
+        "android_client_info": {
+          "package_name": "com.example.moval"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABIs6QvaTAAFiOH-iZqGlGZQ4v_CH4e94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:111804340355:android:7b6ac7917382ad2e85a3b6",
+        "android_client_info": {
+          "package_name": "com.movalapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABIs6QvaTAAFiOH-iZqGlGZQ4v_CH4e94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
