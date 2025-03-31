@@ -28,13 +28,16 @@ class _HomeView extends State<HomeView> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: widget.child,
-      bottomNavigationBar: BottomTabBar(
-        selectedIndex: widget.selectedTab,
-        onTabSelected: _onTapped,
-        items: [
-          BottomTabBarItem(iconData: 'home.svg', text: ''),
-          BottomTabBarItem(iconData: 'user.svg', text: ''),
-        ],
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: BottomTabBar(
+          selectedIndex: widget.selectedTab,
+          onTabSelected: _onTapped,
+          items: [
+            BottomTabBarItem(iconData: 'home.svg', text: ''),
+            BottomTabBarItem(iconData: 'user.svg', text: ''),
+          ],
+        ),
       ),
       floatingActionButtonLocation: isShowAddButtonLocation(),
       floatingActionButton: isShowAddButton(),
