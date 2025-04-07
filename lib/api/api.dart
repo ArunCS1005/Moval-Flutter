@@ -473,14 +473,28 @@ Future searchJobsList({
         'Accept': 'application/json',
       };
 
+      // Check if file exists
+      if (!await file.exists()) {
+        apiLog('uploadMSFile - File does not exist: ${file.path}');
+        return 'File not found';
+      }
+
       double fileSize = file.lengthSync() / 1024;
       apiLog('uploadMSFile - FileSize = $fileSize');
 
-      Uint8List? result = await FlutterImageCompress.compressWithFile(
-        file.path,
-        quality: 50,
-        minHeight: 250,
-      );
+      // Try to compress the image
+      Uint8List? result;
+      try {
+        result = await FlutterImageCompress.compressWithFile(
+          file.path,
+          quality: 50,
+          minHeight: 250,
+        );
+      } catch (e) {
+        // Fall back to original file if compression fails
+        apiLog('uploadMSFile - Compression failed: $e. Using original file.');
+        result = await file.readAsBytes();
+      }
 
       if (result == null) return defaultError;
 
@@ -496,25 +510,41 @@ Future searchJobsList({
         headers: header,
         encoding: Encoding.getByName('utf-8'),
       );
+      
       apiLog('uploadMSFile- $uri', flag: true);
       apiLog('uploadMSFile Headers- ${response.headers}', flag: true);
       apiLog('uploadMSFile Response Code- ${response.statusCode}', flag: true);
       apiLog('uploadMSFile Response-\n${response.body}');
-      final responseBody = jsonDecode(response.body);
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return responseBody['message']['path'];
-      } else if (response.statusCode == 401) {
-        return authError;
-      } else {
-        return defaultError + responseBody['message'];
+      
+      // Parse the response
+      try {
+        final responseBody = jsonDecode(response.body);
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Fix: Access the correct path in the response structure
+          if (responseBody['success'] == true && responseBody['result'] != null) {
+            // Return the full URL path from the response
+            return responseBody['result']['path'];
+          } else {
+            apiLog('uploadMSFile - Unexpected response format: ${response.body}');
+            return defaultError;
+          }
+        } else if (response.statusCode == 401) {
+          return authError;
+        } else {
+          return defaultError + (responseBody['message'] ?? '');
+        }
+      } catch (e) {
+        apiLog('uploadMSFile - Error parsing response: $e');
+        return defaultError;
       }
     } on SocketException {
+      apiLog('uploadMSFile - Network error');
       return internetError;
     } catch (e) {
+      apiLog('uploadMSFile - Error: $e');
       return defaultError;
     }
   }
-
 
   Future uploadMVFile({
     required int jobId,

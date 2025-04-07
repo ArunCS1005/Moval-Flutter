@@ -733,49 +733,81 @@ class _State extends State<MSUploadImages>
     _captureController.invalidate(item['type'], item);
 
     try {
+      // Add location text to the image if needed
       if (item['type'] != video && item['updated'] == '0') {
-        final placeMark = await placemarkFromCoordinates(
-          double.parse(item['latitude'] ?? '0'),
-          double.parse(item['longitude'] ?? '0'),
-        );
+        try {
+          final placeMark = await placemarkFromCoordinates(
+            double.parse(item['latitude'] ?? '0'),
+            double.parse(item['longitude'] ?? '0'),
+          );
 
-        String place =
-            '${placeMark.first.subLocality}, ${placeMark.first.locality}';
+          String place =
+              '${placeMark.first.subLocality}, ${placeMark.first.locality}';
 
-        await _channel.invokeMethod(
-          'edit',
-          jsonEncode(
-            {
-              'path': item['name'],
-              'location': '${item['time']}\n$place',
-              'forcePortrait': false,
-            },
-          ),
-        );
+          await _channel.invokeMethod(
+            'edit',
+            jsonEncode(
+              {
+                'path': item['name'],
+                'location': '${item['time']}\n$place',
+                'forcePortrait': false,
+              },
+            ),
+          );
+          log("Successfully added location text to image: ${item['type']}");
+        } catch (e) {
+          log("When Adding Failed to get path $e");
+          // Continue with upload even if adding location fails
+        }
+      }
+      
+      // Check file existence
+      File imageFile = File(item['name']);
+      if (!await imageFile.exists()) {
+        log("File doesn't exist at path: ${item['name']}");
+        item['status'] = "File not found";
+        _captureController.invalidate(item['type'], item);
+        return false;
+      }
+
+      // Upload the file
+      log("Uploading file for ${item['type']}, size: ${imageFile.lengthSync()} bytes");
+      String response = await Api(scaffoldMessengerState).uploadMSFile(
+        file: imageFile,
+      );
+      log("Upload response for ${item['type']}: $response");
+
+      // Check if the response is a valid URL
+      if (response.startsWith('http')) {
+        log("Upload successful for ${item['type']}, deleting local file");
+        try {
+          await imageFile.delete();
+          log("Local file deleted successfully");
+        } catch (e) {
+          log("Error deleting local file: $e");
+          // Not critical, continue
+        }
+        
+        item['name'] = response;
+        item['status'] = Api.success;
+        log("Item status updated to success, URL: ${item['name']}");
+        
+        // Notify UI about successful upload
+        _captureController.invalidate(item['type'], item);
+        return true;
+      } else {
+        // Upload failed
+        log("Upload failed for ${item['type']}: $response");
+        item['status'] = response;
+        _captureController.invalidate(item['type'], item);
+        return false;
       }
     } catch (e) {
-      log("When Adding Failed to get path $e");
-
+      log("Unexpected error during upload: $e");
       item['status'] = Api.internetError;
       _captureController.invalidate(item['type'], item);
       return false;
     }
-
-    File imageFile = File(item['name']);
-    String response = await Api(scaffoldMessengerState).uploadMSFile(
-      file: imageFile,
-    );
-
-    if (response.startsWith('http')) {
-      await File(item['name']).delete();
-      item['name'] = response;
-      item['status'] = Api.success;
-    } else {
-      item['status'] = response;
-    }
-
-    _captureController.invalidate(item['type'], item);
-    return true;
   }
 
   String _getData(String key) => (_data[key] ?? '').toString();

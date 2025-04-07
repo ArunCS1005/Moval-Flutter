@@ -59,7 +59,7 @@ class _State extends State<MSSurveyDetails>
   final List _sopList = [];
   final List _workshopList = [];
   final List _workshopBranchList = [];
-  final bool _sameAsWorkshop = false;
+  bool _sameAsWorkshop = false;
 
   @override
   void initState() {
@@ -71,10 +71,14 @@ class _State extends State<MSSurveyDetails>
 
   _initiatePage() async {
     await Future.delayed(const Duration(milliseconds: 75));
+    log('MS Survey Details: Initializing page');
     widget._pagerController.addResponseListener(vehicleDetail, _onResponse);
     widget._pagerController.addButtonListener(1, _next);
     widget._pagerController
-        .addIdListener(vehicleDetail, (id) => _data['id'] = id);
+        .addIdListener(vehicleDetail, (id) {
+          log('MS Survey Details: Received ID: $id');
+          _data['id'] = id;
+        });
     _searchDropDownController.addHandler(_searchDropDownHandler);
     _searchDropDownController.addScrollListener(_searchDropDownScrollListener);
   }
@@ -86,19 +90,25 @@ class _State extends State<MSSurveyDetails>
 
     int userId = Preference.getInt(Preference.userId);
     int userParentId = Preference.getInt(Preference.userParentId);
+    log('MS Survey Details: Getting branch list, userId: $userId, parentId: $userParentId');
+
     final response = await Api(scaffoldMessengerState).getBranchList(
       adminId: (userParentId == -1) ? userId : userParentId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: Branch list response: $response');
 
     if (response == Api.defaultError) {
+      log('MS Survey Details: Failed to get branch list - defaultError');
     } else if (response == Api.internetError) {
+      log('MS Survey Details: Failed to get branch list - internetError, trying local data');
       await _getLocalBranchList();
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get branch list - authError');
       UiUtils.authFailed(navigatorState);
     } else {
       final data = response['values'] ?? [];
+      log('MS Survey Details: Received ${data.length} branches');
       LocalBranchList.saveAllBranch(data);
       _branchList.addAll(data);
     }
@@ -106,26 +116,32 @@ class _State extends State<MSSurveyDetails>
   }
 
   Future<void> _getLocalBranchList() async {
+    log('MS Survey Details: Getting local branch list');
     final response = await LocalBranchList.getAllBranch();
+    log('MS Survey Details: Local branch list size: ${response.length}');
     _branchList.addAll(response);
   }
 
   Future<void> _getClientList({required int branchId}) async {
     ScaffoldMessengerState scaffoldMessengerState =
-    ScaffoldMessenger.of(context);
+        ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
+    log('MS Survey Details: Getting client list for branchId: $branchId');
 
     final response = await Api(scaffoldMessengerState).getClientList(
       platform: platformTypeMS,
       branchId: branchId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: Client list response: $response');
 
     if (response == Api.defaultError || response == Api.internetError) {
+      log('MS Survey Details: Failed to get client list - ${response == Api.defaultError ? 'defaultError' : 'internetError'}');
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get client list - authError');
       UiUtils.authFailed(navigatorState);
     } else {
+      log('MS Survey Details: Received ${response.length} clients');
       _clientList.addAll(response);
     }
     _updateUi;
@@ -133,39 +149,91 @@ class _State extends State<MSSurveyDetails>
 
   Future<void> _getClientBranchList({required int clientId}) async {
     ScaffoldMessengerState scaffoldMessengerState =
-    ScaffoldMessenger.of(context);
+        ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
+    log('MS Survey Details: Getting client branch list for clientId: $clientId');
 
     final response = await Api(scaffoldMessengerState).getClientBranchList(
       clientId: clientId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: Client branch list response structure: ${response.runtimeType}');
+    log('MS Survey Details: Client branch list response: $response');
 
     if (response == Api.defaultError || response == Api.internetError) {
+      log('MS Survey Details: Failed to get client branch list - ${response == Api.defaultError ? 'defaultError' : 'internetError'}');
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get client branch list - authError');
       UiUtils.authFailed(navigatorState);
-    } else {
+    } else if (response is Map) {
+      // Handle response as a Map - extract the list of branches
+      try {
+        // Extract client branches from the response map
+        // Check if there's a 'values' or similar key in the map
+        if (response.containsKey('values')) {
+          var branches = response['values'];
+          if (branches is List) {
+            log('MS Survey Details: Received ${branches.length} client branches from values key');
+            _clientBranchList.addAll(branches);
+          }
+        } else {
+          // If no specific key is found, try to extract all values that look like branches
+          log('MS Survey Details: No values key found, checking all keys');
+          response.forEach((key, value) {
+            if (value is List) {
+              log('MS Survey Details: Found list in key: $key with ${value.length} items');
+              _clientBranchList.addAll(value);
+            } else if (value is Map && value.containsKey('office_code')) {
+              // Single branch object
+              log('MS Survey Details: Found single branch in key: $key');
+              _clientBranchList.add(value);
+            }
+          });
+        }
+        
+        if (_clientBranchList.isEmpty) {
+          // As a last resort, try to add the response itself if it looks like a branch
+          if (response.containsKey('office_code')) {
+            log('MS Survey Details: Adding response itself as a branch');
+            _clientBranchList.add(response);
+          } else {
+            log('MS Survey Details: Could not find any client branches in response');
+          }
+        }
+      } catch (e) {
+        log('MS Survey Details: Error processing client branch list: $e');
+      }
+    } else if (response is List) {
+      // Original behavior if response is a list
+      log('MS Survey Details: Received ${response.length} client branches as List');
       _clientBranchList.addAll(response);
+    } else {
+      log('MS Survey Details: Response is neither a Map nor a List: ${response.runtimeType}');
     }
+    
+    log('MS Survey Details: Final client branch list size: ${_clientBranchList.length}');
     _updateUi;
   }
 
   Future<void> _getSopList({required int branchId}) async {
     ScaffoldMessengerState scaffoldMessengerState =
-    ScaffoldMessenger.of(context);
+        ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
+    log('MS Survey Details: Getting SOP list for branchId: $branchId');
 
     final response = await Api(scaffoldMessengerState).getSopList(
       branchId: branchId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: SOP list response: $response');
 
     if (response == Api.defaultError || response == Api.internetError) {
+      log('MS Survey Details: Failed to get SOP list - ${response == Api.defaultError ? 'defaultError' : 'internetError'}');
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get SOP list - authError');
       UiUtils.authFailed(navigatorState);
     } else {
+      log('MS Survey Details: Received ${response.length} SOPs');
       _sopList.addAll(response);
     }
     _updateUi;
@@ -173,19 +241,23 @@ class _State extends State<MSSurveyDetails>
 
   Future<void> _getWorkshopList({required int branchId}) async {
     ScaffoldMessengerState scaffoldMessengerState =
-    ScaffoldMessenger.of(context);
+        ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
+    log('MS Survey Details: Getting workshop list for branchId: $branchId');
 
     final response = await Api(scaffoldMessengerState).getWorkshopList(
       branchId: branchId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: Workshop list response: $response');
 
     if (response == Api.defaultError || response == Api.internetError) {
+      log('MS Survey Details: Failed to get workshop list - ${response == Api.defaultError ? 'defaultError' : 'internetError'}');
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get workshop list - authError');
       UiUtils.authFailed(navigatorState);
     } else {
+      log('MS Survey Details: Received ${response.length} workshops');
       _workshopList.addAll(response);
     }
     _updateUi;
@@ -193,25 +265,31 @@ class _State extends State<MSSurveyDetails>
 
   Future<void> _getWorkshopBranchList({required int workshopId}) async {
     ScaffoldMessengerState scaffoldMessengerState =
-    ScaffoldMessenger.of(context);
+        ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
+    log('MS Survey Details: Getting workshop branch list for workshopId: $workshopId');
 
     final response = await Api(scaffoldMessengerState).getWorkshopBranchList(
       workshopId: workshopId,
     );
 
-    log(response.toString());
+    log('MS Survey Details: Workshop branch list response: $response');
 
     if (response == Api.defaultError || response == Api.internetError) {
+      log('MS Survey Details: Failed to get workshop branch list - ${response == Api.defaultError ? 'defaultError' : 'internetError'}');
     } else if (response == Api.authError) {
+      log('MS Survey Details: Failed to get workshop branch list - authError');
       UiUtils.authFailed(navigatorState);
     } else {
+      log('MS Survey Details: Received ${response.length} workshop branches');
       _workshopBranchList.addAll(response);
     }
     _updateUi;
   }
 
   _searchDropDownHandler(String k, dynamic v) async {
+    log('MS Survey Details: SearchDropDown handler - key: $k, value: $v');
+    
     if (k == 'selected_branch') {
       await _onSelectedBranch(v);
       _updateUi;
@@ -238,6 +316,7 @@ class _State extends State<MSSurveyDetails>
   }
 
   Future<void> _onSelectedOfficeCode(dynamic v) async {
+    log('MS Survey Details: Selected office code: $v');
     _data['office_name'] = v['office_name'] ?? '';
     _editTextController.invalidate('office_name');
 
@@ -246,17 +325,21 @@ class _State extends State<MSSurveyDetails>
   }
 
   Future<void> _onSelectedBranch(dynamic v) async {
-    _searchDropDownController.invalidate('workHob Noshop_name', Api.loading);
+    log('MS Survey Details: Selected branch: $v');
+    _searchDropDownController.invalidate('workshop_name', Api.loading);
     _searchDropDownController.invalidate('selected_sop', Api.loading);
     _searchDropDownController.invalidate('selected_client', Api.loading);
 
     int branchId = v['id'];
+    log('MS Survey Details: Clearing workshop list');
     _workshopList.clear();
     await _getWorkshopList(branchId: branchId);
 
+    log('MS Survey Details: Clearing client list');
     _clientList.clear();
     await _getClientList(branchId: branchId);
 
+    log('MS Survey Details: Clearing SOP list');
     _sopList.clear();
     await _getSopList(branchId: branchId);
 
@@ -266,9 +349,11 @@ class _State extends State<MSSurveyDetails>
   }
 
   Future<void> _onSelectedClient(dynamic v) async {
+    log('MS Survey Details: Selected client: $v');
     _searchDropDownController.invalidate('selected_office_code', Api.loading);
 
     int clientId = v['id'];
+    log('MS Survey Details: Clearing client branch list');
     _clientBranchList.clear();
     await _getClientBranchList(clientId: clientId);
 
@@ -276,6 +361,7 @@ class _State extends State<MSSurveyDetails>
   }
 
   Future<void> _onSelectedWorkshop(dynamic v) async {
+    log('MS Survey Details: Selected workshop: $v');
     if(_sameAsWorkshop) {
       _data['place_of_survey'] = _data['workshop_name'];
       _editTextController.invalidate('place_of_survey');
@@ -285,6 +371,7 @@ class _State extends State<MSSurveyDetails>
     _searchDropDownController.invalidate('workshop_branch', Api.loading);
 
     int workshopId = v['id'];
+    log('MS Survey Details: Clearing workshop branch list');
     _workshopBranchList.clear();
     await _getWorkshopBranchList(workshopId: workshopId);
 
@@ -292,67 +379,191 @@ class _State extends State<MSSurveyDetails>
   }
 
   _onResponse(response) async {
-    log("at Survey Detail: $response");
-    if (response == Api.defaultError) {
-      return;
+    log("MS Survey Details: Received response: $response");
+    try {
+      if (response == Api.defaultError) {
+        log("MS Survey Details: Received default error response");
+        return;
+      }
+      
+      // Deep copy the response to _data
+      if (response is Map) {
+        log("MS Survey Details: Processing response map with keys: ${response.keys.toList()}");
+        response.forEach((k, v) {
+          _data[k] = v;
+          log("MS Survey Details: Copied key $k with value type: ${v.runtimeType}");
+        });
+      } else {
+        log("MS Survey Details: Response is not a Map: ${response.runtimeType}");
+      }
+      
+      await _getBranchList();
+      
+      // Debug logging for important fields
+      log("MS Survey Details: Response admin_branch_id: ${response['admin_branch_id']}");
+      log("MS Survey Details: Response workshop_id: ${response['workshop_id']}");
+      log("MS Survey Details: Response client_id: ${response['client_id']}");
+      log("MS Survey Details: Response client_branch_id: ${response['client_branch_id']}");
+      log("MS Survey Details: Response sop_id: ${response['sop_id']}");
+      log("MS Survey Details: Branch list size: ${_branchList.length}");
+      
+      final selectedBranch = _branchList.firstWhere(
+          (e) => e['id'].toString() == response['admin_branch_id'].toString(),
+          orElse: () {
+            log("MS Survey Details: Could not find branch with id: ${response['admin_branch_id']}");
+            return {'branch_name': ''};
+          });
+      
+      log("MS Survey Details: Selected branch: ${selectedBranch['branch_name']}");
+
+      int branchId = (response['admin_branch_id'] is int)
+          ? response['admin_branch_id']
+          : int.tryParse(response['admin_branch_id'].toString()) ?? -1;
+      
+      log("MS Survey Details: Loading workshop list for branch ID: $branchId");
+      await _getWorkshopList(branchId: branchId);
+
+      log("MS Survey Details: Loading client list for branch ID: $branchId");
+      await _getClientList(branchId: branchId);
+
+      log("MS Survey Details: Loading SOP list for branch ID: $branchId");
+      await _getSopList(branchId: branchId);
+
+      int clientId = response['client_id'] is int 
+          ? response['client_id'] 
+          : int.tryParse(response['client_id'].toString()) ?? -1;
+      
+      log("MS Survey Details: Loading client branch list for client ID: $clientId");
+      _clientBranchList.clear(); // Ensure the list is clear before loading new data
+      await _getClientBranchList(clientId: clientId);
+      
+      // Handle case where client branch list might be empty
+      if (_clientBranchList.isEmpty) {
+        log("MS Survey Details: Warning - client branch list is empty after loading");
+        // Create a default client branch if needed
+        _clientBranchList.add({
+          'id': response['client_branch_id'],
+          'office_code': '',
+          'office_name': response['office_name'] ?? '',
+          'office_address': response['office_address'] ?? ''
+        });
+      }
+      
+      final selectedClientBranch = _clientBranchList.firstWhere(
+          (e) => e['id'].toString() == response['client_branch_id'].toString(),
+          orElse: () {
+            log("MS Survey Details: Could not find client branch with id: ${response['client_branch_id']}");
+            return {'office_code': '', 'office_name': '', 'office_address': ''};
+          });
+
+      int workshopId = response['workshop_id'] is int 
+          ? response['workshop_id'] 
+          : int.tryParse(response['workshop_id'].toString()) ?? -1;
+      
+      log("MS Survey Details: Loading workshop branch list for workshop ID: $workshopId");
+      await _getWorkshopBranchList(workshopId: workshopId);
+
+      // Find claim type
+      try {
+        final claimTypeItem = _claimTypeList.firstWhere(
+            (e) => e['id'].toString() == response['claim_type'].toString(),
+            orElse: () {
+              log("MS Survey Details: Could not find claim type with id: ${response['claim_type']}");
+              return {'name': ''};
+            });
+            
+        log("MS Survey Details: Found claim type: ${claimTypeItem['name']}");
+        _data['claim_type'] = claimTypeItem['name'];
+      } catch (e) {
+        log("MS Survey Details: Error finding claim type: $e");
+      }
+      
+      // Find workshop
+      try {
+        final workshopItem = _workshopList.firstWhere(
+            (e) => e['id'].toString() == response['workshop_id'].toString(),
+            orElse: () {
+              log("MS Survey Details: Could not find workshop with id: ${response['workshop_id']}");
+              return {'workshop_name': ''};
+            });
+            
+        log("MS Survey Details: Found workshop: ${workshopItem['workshop_name']}");
+        _data['workshop_name'] = workshopItem['workshop_name'];
+      } catch (e) {
+        log("MS Survey Details: Error finding workshop: $e");
+      }
+      
+      // Find workshop branch
+      try {
+        final workshopBranchItem = _workshopBranchList.firstWhere(
+            (e) => e['id'].toString() == response['workshop_branch_id'].toString(),
+            orElse: () {
+              log("MS Survey Details: Could not find workshop branch with id: ${response['workshop_branch_id']}");
+              return {'workshop_branch_name': ''};
+            });
+            
+        log("MS Survey Details: Found workshop branch: ${workshopBranchItem['workshop_branch_name']}");
+        _data['workshop_branch'] = workshopBranchItem['workshop_branch_name'];
+      } catch (e) {
+        log("MS Survey Details: Error finding workshop branch: $e");
+      }
+
+      // Find client
+      try {
+        final clientItem = _clientList.firstWhere(
+            (e) => e['id'].toString() == response['client_id'].toString(),
+            orElse: () {
+              log("MS Survey Details: Could not find client with id: ${response['client_id']}");
+              return {'client_name': ''};
+            });
+            
+        log("MS Survey Details: Found client: ${clientItem['client_name']}");
+        _data['selected_client'] = clientItem['client_name'];
+      } catch (e) {
+        log("MS Survey Details: Error finding client: $e");
+      }
+
+      // Find SOP
+      try {
+        log("MS Survey Details: Finding SOP with id: ${response['sop_id']}");
+        log("MS Survey Details: SOP list: $_sopList");
+        
+        final sopItem = _sopList.firstWhere(
+            (e) => e['id'].toString() == response['sop_id'].toString(),
+            orElse: () {
+              log("MS Survey Details: Could not find SOP with id: ${response['sop_id']}");
+              return {'sop_name': ''};
+            });
+            
+        log("MS Survey Details: Found SOP: ${sopItem['sop_name']}");
+        _data['selected_sop'] = sopItem['sop_name'];
+      } catch (e) {
+        log("MS Survey Details: Error finding SOP: $e");
+      }
+      
+      _data.addAll({
+        'place_of_survey': response['place_survey'],
+        'contact_person_name': response['contact_person'],
+        'contact_mobile_no': response['contact_no'],
+        'selected_office_code': selectedClientBranch['office_code'],
+        'office_name': selectedClientBranch['office_name'],
+        'office_address': selectedClientBranch['office_address'],
+        'selected_branch': selectedBranch['branch_name'],
+        'registration_date': response['date_of_appointment'],
+      });
+      
+      log("MS Survey Details: Data after processing response: $_data");
+      _updateUi;
+
+      _searchDropDownController.invalidateAll(Api.success);
+      _searchDropDownController.invalidateAll('updateValue');
+      _editTextController.invalidateAll();
+      _dateController.invalidateAll();
+      
+    } catch (e, stackTrace) {
+      log("MS Survey Details: Error processing response: $e");
+      log("MS Survey Details: Stack trace: $stackTrace");
     }
-    await _getBranchList();
-    final selectedBranch = _branchList.firstWhere(
-        (e) => e['id'].toString() == response['admin_branch_id'].toString(),
-        orElse: () => {'branch_name': ''});
-
-    int branchId = (response['admin_branch_id'] is int)
-        ? response['admin_branch_id']
-        : int.tryParse(response['admin_branch_id']) ?? -1;
-    await _getWorkshopList(branchId: branchId);
-
-    await _getClientList(branchId: branchId);
-
-    await _getSopList(branchId: branchId);
-
-    int clientId = response['client_id'];
-    await _getClientBranchList(clientId: clientId);
-    final selectedClientBranch = _clientBranchList.firstWhere(
-        (e) => e['id'] == response['client_branch_id'],
-        orElse: () => {'office_code': ''});
-
-    int workshopId = response['workshop_id'];
-    await _getWorkshopBranchList(workshopId: workshopId);
-
-    _data.addAll({
-      ...response,
-      'claim_type': _claimTypeList.firstWhere(
-          (e) => e['id'] == response['claim_type'],
-          orElse: () => {'name': ''})['name'],
-      'place_of_survey': response['place_survey'],
-      'workshop_name': _workshopList.firstWhere(
-          (e) => e['id'] == response['workshop_id'],
-          orElse: () => {'workshop_name': ''})['workshop_name'],
-      'workshop_branch': _workshopBranchList.firstWhere(
-          (e) => e['id'] == response['workshop_branch_id'],
-          orElse: () => {'workshop_branch_name': ''})['workshop_branch_name'],
-      'contact_person_name': response['contact_person'],
-      'contact_mobile_no': response['contact_no'],
-      'selected_client': _clientList.firstWhere(
-          (e) => e['id'] == response['client_id'],
-          orElse: () => {'client_name': ''})['client_name'],
-      'registration_date': response['date_of_appointment'],
-      'selected_sop': _sopList.firstWhere((e) {
-        String eId = e['id'].toString();
-        String resSopId = response['sop_id'].toString();
-        return eId == resSopId;
-      }, orElse: () => {'sop_name': ''})['sop_name'],
-      'selected_office_code': selectedClientBranch['office_code'],
-      'office_name': selectedClientBranch['office_name'],
-      'office_address': selectedClientBranch['office_address'],
-      'selected_branch': selectedBranch['branch_name'],
-    });
-    _updateUi;
-
-    _searchDropDownController.invalidateAll(Api.success);
-    _searchDropDownController.invalidateAll('updateValue');
-    _editTextController.invalidateAll();
-    _dateController.invalidateAll();
   }
 
   _funOnSubmitted() async {

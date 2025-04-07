@@ -13,6 +13,7 @@ const String jobsMVList = '$baseApiUrl/job';
 const String jobMSDetail = '$baseApiUrl/jobms/#jobId';
 const String predictAIApi = 'http://192.64.83.204:8200/predict/';
 const String jobMVDetail = '$baseApiUrl/job/#jobId';
+// Ensure this is the correct URL for AWS S3 uploads
 const String uploadMSJobFile = '$baseApiUrl/mobile-app-file-upload';
 const String submitMSJobImageOrVideo = '$baseApiUrl/mobile-app/manual-upload-docs';
 const String submitMSJobSignatureUrl = '$baseApiUrl/mobile-app/upload-signature';

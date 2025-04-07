@@ -12,116 +12,6 @@ import '../local/local_jobs.dart';
 import '../local/local_outside.dart';
 import '../ui/pending_jobs/widget/file_upload_failed.dart';
 
-// void setupJobData({
-//   required BuildContext context,
-//   required ScaffoldMessengerState scaffoldMessengerState,
-//   required NavigatorState navigatorState,
-//   required List<Map<String, dynamic>> images,
-//   required dynamic locationControllerPosition,
-//   required Map<String, dynamic> data,
-//   required Map<String, dynamic> dataSOP,
-//   required List<Map<String, dynamic>> customVehicleImagesField,
-//   required List<Map<String, dynamic>> customDocumentImageField,
-//   required Function retryFailedFile,
-//   required Function onJobSubmit,
-//   required Function getData,
-// }) {
-//   // Log or print the data being passed
-//   print('Context: $context');
-//   print('ScaffoldMessengerState: $scaffoldMessengerState');
-//   print('NavigatorState: $navigatorState');
-//   print('Images: $images');
-//   print('LocationControllerPosition: $locationControllerPosition');
-//   print('Data: $data');
-//   print('DataSOP: $dataSOP');
-//   print('Custom Vehicle Images: $customVehicleImagesField');
-//   print('Custom Document Images: $customDocumentImageField');
-//   print('Retry Function: $retryFailedFile');
-//   print('On Job Submit: $onJobSubmit');
-//   print('Get Data: $getData');
-
-//   JobDataStorage().setData(
-//     context: context,
-//     scaffoldMessengerState: scaffoldMessengerState,
-//     navigatorState: navigatorState,
-//     images: images,
-//     locationControllerPosition: locationControllerPosition,
-//     data: data,
-//     dataSOP: dataSOP,
-//     customVehicleImagesField: customVehicleImagesField,
-//     customDocumentImageField: customDocumentImageField,
-//     retryFailedFile: retryFailedFile,
-//     onJobSubmit: onJobSubmit,
-//     getData: getData,
-//   );
-// }
-
-// class JobDataStorage {
-//   // Singleton instance
-//   static final JobDataStorage _instance = JobDataStorage._internal();
-//   factory JobDataStorage() => _instance;
-//   JobDataStorage._internal();
-
-//   // Fields to store data
-//   BuildContext? context;
-//   ScaffoldMessengerState? scaffoldMessengerState;
-//   NavigatorState? navigatorState;
-//   List<Map<String, dynamic>>? images;
-//   dynamic locationControllerPosition;
-//   Map<String, dynamic>? data;
-//   Map<String, dynamic>? dataSOP;
-//   List<Map<String, dynamic>>? customVehicleImagesField;
-//   List<Map<String, dynamic>>? customDocumentImageField;
-//   Function? retryFailedFile;
-//   Function? onJobSubmit;
-//   Function? getData;
-
-//   // Method to set data
-//   void setData({
-//     required BuildContext context,
-//     required ScaffoldMessengerState scaffoldMessengerState,
-//     required NavigatorState navigatorState,
-//     required List<Map<String, dynamic>> images,
-//     required dynamic locationControllerPosition,
-//     required Map<String, dynamic> data,
-//     required Map<String, dynamic> dataSOP,
-//     required List<Map<String, dynamic>> customVehicleImagesField,
-//     required List<Map<String, dynamic>> customDocumentImageField,
-//     required Function retryFailedFile,
-//     required Function onJobSubmit,
-//     required Function getData,
-//   }) {
-//     this.context = context;
-//     this.scaffoldMessengerState = scaffoldMessengerState;
-//     this.navigatorState = navigatorState;
-//     this.images = images;
-//     this.locationControllerPosition = locationControllerPosition;
-//     this.data = data;
-//     this.dataSOP = dataSOP;
-//     this.customVehicleImagesField = customVehicleImagesField;
-//     this.customDocumentImageField = customDocumentImageField;
-//     this.retryFailedFile = retryFailedFile;
-//     this.onJobSubmit = onJobSubmit;
-//     this.getData = getData;
-//   }
-
-//   // Method to check if data is set
-//   bool get hasData =>
-//       context != null &&
-//       scaffoldMessengerState != null &&
-//       navigatorState != null &&
-//       images != null &&
-//       data != null &&
-//       dataSOP != null &&
-//       customVehicleImagesField != null &&
-//       customDocumentImageField != null &&
-//       retryFailedFile != null &&
-//       onJobSubmit != null &&
-//       getData != null;
-// }
-
-
-
 void setupJobData({
   required BuildContext context,
   required ScaffoldMessengerState scaffoldMessengerState,
@@ -159,9 +49,6 @@ void setupJobData({
     getData: getData,
   );
 }
-
-
-
 
 class JobDataStorage {
   // Singleton instance
@@ -399,6 +286,68 @@ Future<void> submitJobData(BuildContext context) async {
     }
   }
 }
+
+void submitJob(BuildContext context, {
+  required bool isOffline,
+}) async {
+  ScaffoldMessengerState scaffoldMessengerState = ScaffoldMessenger.of(context);
+  
+  // Log the process
+  logInfo("Starting job submission process. Offline mode: $isOffline");
+  
+  // Retrieve data from storage
+  var storage = JobDataStorage();
+  if (!storage.hasData) {
+    logError("JobDataStorage not initialized properly");
+    ASnackBar.showError(scaffoldMessengerState, "Data not initialized properly. Please try again.");
+    return;
+  }
+  
+  // Extract data from storage
+  List<Map<String, dynamic>> images = 
+      List<Map<String, dynamic>>.from(storage.images!);
+  Function retryFailedFile = storage.retryFailedFile!; // Access the function from storage
+  
+  // Specifically check for image upload status
+  bool hasUploadingImages = false;
+  bool hasFailedImages = false;
+  String failedImageTypes = '';
+  
+  for (var item in images) {
+    if (item['status'] == Api.loading) {
+      hasUploadingImages = true;
+      logWarning("Image still uploading: ${item['type']}");
+    } else if (item['status'] != Api.success && !item['name'].toString().startsWith('http')) {
+      hasFailedImages = true;
+      failedImageTypes += "${failedImageTypes.isEmpty ? '' : ', '}${item['type']}";
+      logError("Failed image: ${item['type']} - Status: ${item['status']}");
+    }
+  }
+  
+  if (hasUploadingImages) {
+    ASnackBar.showWarning(scaffoldMessengerState, 
+        "Some images are still uploading. Please wait before submitting.");
+    return;
+  }
+  
+  if (hasFailedImages) {
+    logError("Some images failed to upload: $failedImageTypes");
+    final response = await showDialog(
+      context: context,
+      builder: (builder) => FileUploadFailedDialog(files: failedImageTypes),
+    );
+    
+    if (response == true) {
+      logInfo("Retrying failed file uploads");
+      retryFailedFile(); // Now correctly using the function from storage
+    }
+    return;
+  }
+  
+  // All checks passed, proceed with job submission
+  await submitJobData(context);
+}
+
 // Color codes for terminal output
 const String resetColor = '\x1B[0m';
 const String redColor = '\x1B[31m';
