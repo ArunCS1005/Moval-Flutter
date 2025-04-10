@@ -40,11 +40,19 @@ class SubmitDataDialog extends StatelessWidget {
         ),
         CupertinoActionSheetAction(
           onPressed: () async {
-            await submitJobData(context);
-
+            // Close the dialog first
             Navigator.pop(context);
+            // Submit the job data
+            await submitJobData(context);
+            // Navigate back to pending jobs page with a simple pop until
+            // instead of using popUntil and pushReplacement which can cause black screen
+            Navigator.of(context).popUntil((route) {
+              return route.settings.name == '/pendingJobs' || route.isFirst;
+            });
+            // Refresh the jobs list
+            Navigator.of(context).pushReplacementNamed('/pendingJobs', arguments: 'refresh');
           },
-          child: const Text('Confirm 2',
+          child: const Text('Confirm',
               style: TextStyle(fontSize: 18, color: Colors.green)),
         ),
       ],
