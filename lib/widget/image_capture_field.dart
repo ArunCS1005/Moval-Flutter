@@ -95,7 +95,7 @@ class _State extends State<ImageCaptureField> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AText(widget.title),
+              Expanded(child: AText(widget.title)),
               _media,
             ],
           ),

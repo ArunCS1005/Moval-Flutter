@@ -11,6 +11,9 @@ class AText extends StatelessWidget{
   final EdgeInsets padding;
   final EdgeInsets margin;
   final TextAlign? textAlign;
+  final TextOverflow? overflow;
+  final int? maxLines;
+  final bool softWrap;
 
   const AText(
     this.text, {
@@ -23,6 +26,9 @@ class AText extends StatelessWidget{
     this.padding = const EdgeInsets.all(0),
     this.margin = const EdgeInsets.all(0),
     this.textAlign,
+    this.overflow = TextOverflow.ellipsis,
+    this.maxLines = 3,
+    this.softWrap = true,
   }) : super(key: key);
 
   @override
@@ -35,6 +41,9 @@ class AText extends StatelessWidget{
         text,
         style: _style,
         textAlign: textAlign,
+        overflow: overflow,
+        maxLines: maxLines,
+        softWrap: softWrap,
       ),
     );
   }
