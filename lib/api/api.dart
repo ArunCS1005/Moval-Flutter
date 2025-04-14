@@ -604,6 +604,21 @@ Future searchJobsList({
   }) async {
     try {
       const uri = submitMSJobImageOrVideo;
+      
+      // Calculate and add total counts for backend tracking
+      int totalVehicleImages = vehicleImages.length + customVehicleImages.length;
+      int totalDocumentImages = documentImages.length + customDocumentImages.length;
+      
+      // Log detailed image count information
+      dev.log('===== IMAGE COUNT TRACKING =====');
+      dev.log('Required vehicle images: ${vehicleImages.length}');
+      dev.log('Custom vehicle images: ${customVehicleImages.length}');
+      dev.log('Total vehicle images: $totalVehicleImages');
+      dev.log('Required document images: ${documentImages.length}');
+      dev.log('Custom document images: ${customDocumentImages.length}');
+      dev.log('Total document images: $totalDocumentImages');
+      dev.log('================================');
+      
       final body = {
         'inspection_id': jobId,
         'sop_id': sopId,
@@ -611,6 +626,8 @@ Future searchJobsList({
         'document_images_field_post': documentImages,
         'custom_vehichle_images_field_post': customVehicleImages,
         'custom_document_images_field_post': customDocumentImages,
+        'total_vehicle_images': totalVehicleImages,
+        'total_document_images': totalDocumentImages,
         'job_remark': remark,
         'video_file': videoFile,
       };
@@ -949,10 +966,65 @@ Future searchJobsList({
       });
 
       dev.log("getJobFiles -> $uri");
-      dev.log("getJobFiles response -> ${response.body}");
-
+      
       if (response.statusCode == 200) {
-        return jsonDecode(response.body)['result']['values'];
+        var result = jsonDecode(response.body)['result']['values'];
+        
+        // Log detailed image counts from the server response
+        dev.log("===== FETCHED IMAGE COUNT =====");
+        
+        int vehicleImagesCount = 0;
+        int documentImagesCount = 0;
+        
+        // Count images from structured data
+        if (result['vehichle_images_field_label'] != null) {
+          try {
+            List<dynamic> vehicleImages = json.decode(result['vehichle_images_field_label'] ?? '[]');
+            vehicleImagesCount += vehicleImages.length;
+            dev.log("Standard vehicle images: ${vehicleImages.length}");
+          } catch (e) {
+            dev.log("Error parsing vehicle images: $e");
+          }
+        }
+        
+        if (result['custom_vehichle_images_field_label'] != null) {
+          try {
+            List<dynamic> customVehicleImages = json.decode(result['custom_vehichle_images_field_label'] ?? '[]');
+            vehicleImagesCount += customVehicleImages.length;
+            dev.log("Custom vehicle images: ${customVehicleImages.length}");
+          } catch (e) {
+            dev.log("Error parsing custom vehicle images: $e");
+          }
+        }
+        
+        if (result['document_image_field_label'] != null) {
+          try {
+            List<dynamic> documentImages = json.decode(result['document_image_field_label'] ?? '[]');
+            documentImagesCount += documentImages.length;
+            dev.log("Standard document images: ${documentImages.length}");
+          } catch (e) {
+            dev.log("Error parsing document images: $e");
+          }
+        }
+        
+        if (result['custom_document_image_field_label'] != null) {
+          try {
+            List<dynamic> customDocumentImages = json.decode(result['custom_document_image_field_label'] ?? '[]');
+            documentImagesCount += customDocumentImages.length;
+            dev.log("Custom document images: ${customDocumentImages.length}");
+          } catch (e) {
+            dev.log("Error parsing custom document images: $e");
+          }
+        }
+        
+        // Compare with backend provided counts
+        dev.log("Total vehicle images (calculated): $vehicleImagesCount");
+        dev.log("Total document images (calculated): $documentImagesCount");
+        dev.log("Total vehicle images (from server): ${result['total_vehicle_images'] ?? 'Not provided'}");
+        dev.log("Total document images (from server): ${result['total_document_images'] ?? 'Not provided'}");
+        dev.log("=============================");
+        
+        return result;
       } else if (response.statusCode == 401) {
         return authError;
       } else {
@@ -961,6 +1033,7 @@ Future searchJobsList({
     } on SocketException {
       return internetError;
     } catch (e) {
+      dev.log("Error in getJobFiles: $e");
       return defaultError;
     }
   }

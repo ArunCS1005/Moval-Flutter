@@ -90,19 +90,31 @@ class _State extends State<VideoCaptureField> {
   get _videoContainer => AspectRatio(
         aspectRatio: 2.5,
         child: Container(
-          color: Colors.black,
+          clipBehavior: Clip.hardEdge, // Add clip behavior to prevent overflow
+          decoration: BoxDecoration(
+            color: Colors.black, // Keep only this color definition
+            borderRadius: BorderRadius.circular(4.0),
+          ),
           child: Stack(
             alignment: Alignment.topRight,
             children: [
               Center(
                 child: InkWell(
                   onTap: _funMediaDialog,
-                  child: AspectRatio(
-                    aspectRatio: _playerController?.value.aspectRatio ?? 2.5,
+                  child: Container(
+                    width: double.infinity, 
+                    height: double.infinity, 
                     child: _playerController == null ||
                             !(_playerController?.value.isInitialized ?? false)
                         ? _videoLoader
-                        : VideoPlayer(_playerController!),
+                        : FittedBox(
+                          fit: BoxFit.contain,
+                          child: SizedBox(
+                            width: _playerController!.value.size.width,
+                            height: _playerController!.value.size.height,
+                            child: VideoPlayer(_playerController!),
+                          ),
+                        ),
                   ),
                 ),
               ),

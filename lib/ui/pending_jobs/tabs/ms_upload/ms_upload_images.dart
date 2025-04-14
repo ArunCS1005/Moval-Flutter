@@ -580,6 +580,7 @@ class _State extends State<MSUploadImages>
 
     FocusScope.of(context).requestFocus(FocusNode());
 
+    // Validate required inputs
     for (var v in _vehicleImagesFieldLabel) {
       if (_getMedia(v['form_field_label']).isEmpty) {
         ASnackBar.showWarning(scaffoldMessengerState,
@@ -599,45 +600,119 @@ class _State extends State<MSUploadImages>
     if (_getData('remark').isEmpty) {
       ASnackBar.showWarning(scaffoldMessengerState,
           'You cannot submit this job as the remark is not entered');
-    } else {
-      widget._pagerController.setButtonProgress(true);
+      return;
+    }
+    
+    // Show loading progress
+    widget._pagerController.setButtonProgress(true);
 
-      if (await Api.networkAvailable() &&
-          _getData('is_offline') == 'no' &&
-          _imageLocationInvalid() &&
-          context.mounted) {
-        showDialog(
-            context: context, builder: (builder) => const LocationWarning());
+    // Check if any media is still uploading
+    bool hasUploadingMedia = false;
+    for (var item in _images) {
+      if (item['status'] == Api.loading) {
+        hasUploadingMedia = true;
+        break;
+      }
+    }
+
+    if (hasUploadingMedia) {
+      // Wait for uploads to complete with timeout
+      int timeoutSeconds = 60;
+      int elapsedSeconds = 0;
+      
+      while (hasUploadingMedia && elapsedSeconds < timeoutSeconds) {
+        await Future.delayed(const Duration(seconds: 1));
+        elapsedSeconds++;
+        
+        hasUploadingMedia = false;
+        for (var item in _images) {
+          if (item['status'] == Api.loading) {
+            hasUploadingMedia = true;
+            break;
+          }
+        }
+      }
+      
+      // Check if we timed out
+      if (hasUploadingMedia) {
         widget._pagerController.setButtonProgress(false);
+        ASnackBar.showError(
+          scaffoldMessengerState,
+          'Upload taking too long. Please check your internet connection and try again.',
+        );
         return;
       }
-      // Setup job data
-      setupJobData(
-        context: context,
-        scaffoldMessengerState: scaffoldMessengerState,
-        navigatorState: Navigator.of(context),
-        images: _images,
-        locationControllerPosition:
-            _data['location'], // Replace with the actual location data
-        data: _data,
-        dataSOP: _dataSOP,
-        customVehicleImagesField:
-            _customVehicleImagesField, // Ensure you have this defined
-        customDocumentImageField:
-            _customDocumentImageField, // Ensure you have this defined
-        retryFailedFile: _retryFailedFile, // Replace with your actual function
-        onJobSubmit: onJobSubmit,
-        getData: _getData,
+    }
+    
+    // Check for failed uploads
+    bool hasFailedUploads = false;
+    for (var item in _images) {
+      if (item['status'] != Api.success && 
+          !item['name'].toString().startsWith('http') &&
+          item['name'].toString().isNotEmpty) {
+        hasFailedUploads = true;
+        break;
+      }
+    }
+    
+    if (hasFailedUploads) {
+      widget._pagerController.setButtonProgress(false);
+      ASnackBar.showError(
+        scaffoldMessengerState,
+        'Some uploads failed. Please retry.',
       );
+      return;
+    }
 
+    if (await Api.networkAvailable() &&
+        _getData('is_offline') == 'no' &&
+        _imageLocationInvalid() &&
+        context.mounted) {
+      showDialog(
+          context: context, builder: (builder) => const LocationWarning());
+      widget._pagerController.setButtonProgress(false);
+      return;
+    }
+    
+    // Setup job data
+    setupJobData(
+      context: context,
+      scaffoldMessengerState: scaffoldMessengerState,
+      navigatorState: Navigator.of(context),
+      images: _images,
+      locationControllerPosition: _data['location'],
+      data: _data,
+      dataSOP: _dataSOP,
+      customVehicleImagesField: _customVehicleImagesField,
+      customDocumentImageField: _customDocumentImageField,
+      retryFailedFile: _retryFailedFile,
+      onJobSubmit: onJobSubmit,
+      getData: _getData,
+    );
+
+    try {
+      // Show single success message after all uploads are complete
+      ASnackBar.showSnackBar(
+        scaffoldMessengerState,
+        'Images and Documents uploaded successfully',
+        1,
+        status: Api.success,
+      );
+      
+      // Wait briefly to allow user to see the message
+      await Future.delayed(const Duration(milliseconds: 1500));
+      
       if (_data['id'].isNegative) {
         await widget._pagerController.createJob();
-        widget._pagerController
-            .navigate(1); // Navigate to the next screen after job creation
-      } else {
-        widget._pagerController
-            .navigate(1); // Navigate to the next screen if job already exists
       }
+      
+      // Navigate to the next screen
+      if (context.mounted) {
+        widget._pagerController.navigate(1);
+      }
+    } catch (e) {
+      log("Error during navigation: $e");
+      widget._pagerController.setButtonProgress(false);
     }
   }
 
