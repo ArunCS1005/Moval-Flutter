@@ -263,11 +263,15 @@ class _State extends State<MVBasicInfo>
   _otherMediaListener(String task, Map item) {
     switch (task) {
       case 'open':
+        // For MV upload, 'other' type images are vehicle images, not documents
         showDialog(
           context: context,
           builder: (builder) => MediaDialog(
             item['name'],
             picture: true,
+            timestamp: item['time'],
+            location: item['location'] ?? '',
+            mediaType: 'vehicle', // This is a vehicle image in MV tab
           ),
         );
         break;

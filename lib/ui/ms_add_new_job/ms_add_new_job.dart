@@ -130,20 +130,26 @@ class _AddNewJob extends State<MSAddNewJob> {
                   _data,
                   controller: _editTextController,
                   isEnable: !_sameAsWorkshop,
+                  onChanged: (value) {
+                    // Force refresh UI when place_of_survey changes to update Same as Workshop visibility
+                    setState(() {});
+                  },
                 ),
-                Row(
-                  children: [
-                    const AText(
-                      'Same as Workshop: ',
-                      fontWeight: FontWeight.w500,
-                      margin: EdgeInsets.only(left: 10, bottom: 5),
-                    ),
-                    Switch(
-                      value: _sameAsWorkshop,
-                      onChanged: _onChangeSameAsWorkshop,
-                    ),
-                  ],
-                ),
+                // Only show the Same as Workshop option when place_of_survey is empty
+                if (_getData('place_of_survey').isEmpty)
+                  Row(
+                    children: [
+                      const AText(
+                        'Same as Workshop: ',
+                        fontWeight: FontWeight.w500,
+                        margin: EdgeInsets.only(left: 10, bottom: 5),
+                      ),
+                      Switch(
+                        value: _sameAsWorkshop,
+                        onChanged: _onChangeSameAsWorkshop,
+                      ),
+                    ],
+                  ),
                 SearchDropDown(
                   'Enter Workshop Name',
                   'workshop_name',
@@ -478,17 +484,54 @@ class _AddNewJob extends State<MSAddNewJob> {
         ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
 
+    // Clear the previous list to ensure we don't have duplicates
+    _clientBranchList.clear();
+    
+    // Set the dropdown to loading state while fetching data
+    _searchDropDownController.invalidate('selected_office_code', Api.loading);
+
     final response = await Api(scaffoldMessengerState).getClientBranchList(
       clientId: clientId,
     );
 
-    log(response.toString());
+    log("Client Branch List Response: $response");
 
     if (response == Api.defaultError || response == Api.internetError) {
+      // Show error state in dropdown
+      _searchDropDownController.invalidate('selected_office_code', Api.defaultError);
     } else if (response == Api.authError) {
       UiUtils.authFailed(navigatorState);
     } else {
-      _clientBranchList.addAll(response);
+      // Extract the 'values' list from the response
+      final List branchList = response is Map && response.containsKey('values') 
+          ? response['values'] ?? []
+          : (response is List ? response : []);
+      
+      if (branchList.isNotEmpty) {
+        // Add all office codes to the client branch list
+        _clientBranchList.addAll(branchList);
+        
+        // Clear any previously selected office code when changing client
+        if (_data.containsKey('selected_office_code')) {
+          _data['selected_office_code'] = '';
+        }
+        
+        // Clear office name and address when changing client
+        _data['office_name'] = '';
+        _editTextController.invalidate('office_name');
+        _data['office_address'] = '';
+        _editTextController.invalidate('office_address');
+        
+        log("Added ${branchList.length} office codes to dropdown");
+        
+        // Set dropdown to success state
+        _searchDropDownController.invalidate('selected_office_code', Api.success);
+      } else {
+        // If response is empty, show a message
+        log("No office codes found in response");
+        ASnackBar.showWarning(scaffoldMessengerState, 'No office codes found for this client');
+        _searchDropDownController.invalidate('selected_office_code', Api.defaultError);
+      }
     }
     _updateUi;
   }
@@ -535,7 +578,7 @@ class _AddNewJob extends State<MSAddNewJob> {
       ASnackBar.showSnackBar(
           scaffoldMessengerState, 'Insured Name Required', 0);
       return;
-    } else if (_getData('place_of_survey').isEmpty) {
+    } else if (_getData('place_of_survey').isEmpty && !_sameAsWorkshop) {
       ASnackBar.showSnackBar(
           scaffoldMessengerState, 'Place of Survey Required', 0);
       return;
@@ -610,6 +653,7 @@ class _AddNewJob extends State<MSAddNewJob> {
       'branch_name': selectedBranch['branch_name'],
       'created_by': Preference.getInt(Preference.userId).toString(),
       'contact_person': _getData('contact_person_name'),
+      'same_as_workshop': _sameAsWorkshop ? '1' : '0',
       'Job_Route_To': '1',
       'upload_type': '1',
     });

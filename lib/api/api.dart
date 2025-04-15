@@ -608,16 +608,7 @@ Future searchJobsList({
       // Calculate and add total counts for backend tracking
       int totalVehicleImages = vehicleImages.length + customVehicleImages.length;
       int totalDocumentImages = documentImages.length + customDocumentImages.length;
-      
-      // Log detailed image count information
-      dev.log('===== IMAGE COUNT TRACKING =====');
-      dev.log('Required vehicle images: ${vehicleImages.length}');
-      dev.log('Custom vehicle images: ${customVehicleImages.length}');
-      dev.log('Total vehicle images: $totalVehicleImages');
-      dev.log('Required document images: ${documentImages.length}');
-      dev.log('Custom document images: ${customDocumentImages.length}');
-      dev.log('Total document images: $totalDocumentImages');
-      dev.log('================================');
+
       
       final body = {
         'inspection_id': jobId,

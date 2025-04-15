@@ -245,12 +245,52 @@ class _State extends State<ImageCaptureField> {
         _checkVideoPermission();
       }
     } else {
+      // Get timestamp and location data for the selected image
+      String? timestamp;
+      String? location;
+      
+      // Find the image data in the list
+      for (var item in _images) {
+        if (item['type'] == widget.dataKey) {
+          timestamp = item['time']?.toString();
+          
+          // Create location string from latitude and longitude if available
+          if (item['latitude'] != null && item['longitude'] != null) {
+            String locationDetail = "";
+            if (item.containsKey('location') && item['location'] != null) {
+              // Use pre-formatted location if available
+              locationDetail = item['location'];
+            } else {
+              // Otherwise just show coordinates
+              final String lat = item['latitude'].toString();
+              final String lng = item['longitude'].toString();
+              if (lat != '0.0' && lng != '0.0') {
+                locationDetail = "$lat, $lng";
+              }
+            }
+            
+            if (locationDetail.isNotEmpty) {
+              location = locationDetail;
+            }
+          }
+          break;
+        }
+      }
+      
+      // Determine if this is a document type based on dataKey
+      bool isDocument = widget.dataKey.toLowerCase().contains('document') || 
+                        widget.title.toLowerCase().contains('document');
+      
       showDialog(
-          context: context,
-          builder: (builder) => MediaDialog(
-                _funGetMedia(),
-                picture: _isPicture,
-              ));
+        context: context,
+        builder: (builder) => MediaDialog(
+          _funGetMedia(),
+          picture: _isPicture,
+          timestamp: timestamp,
+          location: location,
+          mediaType: isDocument ? 'document' : 'vehicle',
+        ),
+      );
     }
   }
 

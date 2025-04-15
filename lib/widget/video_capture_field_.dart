@@ -259,11 +259,24 @@ class _State extends State<VideoCaptureField> {
   }
 
   _funMediaDialog() {
+    // Get timestamp for the video if available
+    String? timestamp;
+    
+    // Find the video data in the list
+    for (var item in _images) {
+      if (item['type'] == widget.dataKey) {
+        timestamp = item['time']?.toString();
+        break;
+      }
+    }
+    
     showDialog(
         context: context,
         builder: (builder) => MediaDialog(
               _funGetMedia(),
               picture: false,
+              timestamp: timestamp,
+              mediaType: "video",  // Adding mediaType as "video"
             ));
   }
 

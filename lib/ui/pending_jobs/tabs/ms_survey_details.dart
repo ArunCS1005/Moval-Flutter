@@ -552,6 +552,14 @@ class _State extends State<MSSurveyDetails>
         'registration_date': response['date_of_appointment'],
       });
       
+      // Check if place_of_survey is same as workshop_name to set _sameAsWorkshop flag
+      if (_data.containsKey('place_of_survey') && _data.containsKey('workshop_name')) {
+        String placeSurvey = _data['place_of_survey']?.toString() ?? '';
+        String workshopName = _data['workshop_name']?.toString() ?? '';
+        _sameAsWorkshop = (placeSurvey.isNotEmpty && workshopName.isNotEmpty && placeSurvey == workshopName);
+        log("MS Survey Details: Setting _sameAsWorkshop to $_sameAsWorkshop based on comparison");
+      }
+      
       log("MS Survey Details: Data after processing response: $_data");
       _updateUi;
 
@@ -690,7 +698,8 @@ class _State extends State<MSSurveyDetails>
     } else if (_getData('insured_name').isEmpty) {
       ASnackBar.showSnackBar(state, 'Insured Name Required', 0);
       return false;
-    } else if (_getData('place_of_survey').isEmpty) {
+    } else if (_getData('place_of_survey').isEmpty && !_sameAsWorkshop) {
+      // Only validate place_of_survey if "Same as Workshop" is not selected
       ASnackBar.showSnackBar(state, 'Place of Survey Required', 0);
       return false;
     } else if (_getData('workshop_name').isEmpty) {
@@ -775,6 +784,7 @@ class _State extends State<MSSurveyDetails>
           orElse: () => {'id': -1})['id'],
       'branch_name': selectedBranch['branch_name'],
       'created_by': Preference.getInt(Preference.userId).toString(),
+      'same_as_workshop': _sameAsWorkshop ? '1' : '0', // Added field for API
       'Job_Route_To': '1',
       'upload_type': '1',
     });

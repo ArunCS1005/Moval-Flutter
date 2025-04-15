@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -21,6 +20,7 @@ class EditText extends StatefulWidget {
   final bool isCapital;
   final bool isTitleCase;
   final EditTextController? controller;
+  final Function(String)? onChanged; // Added onChanged callback
 
   const EditText(
       this.hint,
@@ -41,6 +41,7 @@ class EditText extends StatefulWidget {
         this.controller,
         this.isCapital = false,
         this.isTitleCase = false,
+        this.onChanged, // Added to constructor parameters
       }) : super(key: key);
 
   @override
@@ -154,6 +155,7 @@ class _State extends State<EditText> {
 
   _funOnTextChanged(String value) {
     widget.data[widget.dataKey] = value;
+    widget.onChanged?.call(value); // Added callback invocation
   }
 
   get _data => widget.data[widget.dataKey] ?? '';

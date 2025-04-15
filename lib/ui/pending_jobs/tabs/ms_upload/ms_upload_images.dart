@@ -386,6 +386,8 @@ class _State extends State<MSUploadImages>
 
   _addMoreItemAdd(String key, response) async {
     if (response == null) return;
+    
+    // Add the new image to the images list
     _images.add({
       'section': key,
       'name': response['name'],
@@ -395,9 +397,73 @@ class _State extends State<MSUploadImages>
       'type': response['title'],
       'box': response['box'],
     });
+    
+    // Update the image counts based on the section
+    if (key == 'custom_vehichle_images_field_post') {
+      // Update vehicle images count
+      int currentCount = 0;
+      try {
+        currentCount = int.parse(_data['no_of_photos']?.toString() ?? '0');
+      } catch (e) {
+        log("Error parsing no_of_photos: $e");
+      }
+      _data['no_of_photos'] = currentCount + 1;
+      
+      // Log the updated count
+      log("Updated vehicle images count: ${_data['no_of_photos']}");
+    } else if (key == 'custom_document_images_field_post') {
+      // Update document images count
+      int currentCount = 0;
+      try {
+        currentCount = int.parse(_data['no_of_docs']?.toString() ?? '0');
+      } catch (e) {
+        log("Error parsing no_of_docs: $e");
+      }
+      _data['no_of_docs'] = currentCount + 1;
+      
+      // Log the updated count
+      log("Updated document images count: ${_data['no_of_docs']}");
+    }
+    
+    // Update total counts for submission
+    _updateTotalImageCounts();
+    
     _updateUi;
 
     await _uploadFile(_images.last);
+  }
+
+  // Helper method to update total image counts
+  void _updateTotalImageCounts() {
+    // Calculate total vehicle images
+    int vehicleImagesCount = 0;
+    // Count standard vehicle images
+    for (var item in _images) {
+      if (_vehicleImagesFieldLabel.any((field) => field['form_field_label'] == item['type'])) {
+        vehicleImagesCount++;
+      }
+    }
+    // Count custom vehicle images
+    vehicleImagesCount += _customVehicleImagesField.length;
+    
+    // Calculate total document images
+    int documentImagesCount = 0;
+    // Count standard document images
+    for (var item in _images) {
+      if (_documentImageFieldLabel.any((field) => field['form_document_label'] == item['type'])) {
+        documentImagesCount++;
+      }
+    }
+    // Count custom document images
+    documentImagesCount += _customDocumentImageField.length;
+    
+    // Update the counts in the data
+    _data['total_vehicle_images'] = vehicleImagesCount;
+    _data['total_document_images'] = documentImagesCount;
+    _data['no_of_photos'] = vehicleImagesCount;
+    _data['no_of_docs'] = documentImagesCount;
+    
+    log("Updated total counts - Vehicle: $vehicleImagesCount, Document: $documentImagesCount");
   }
 
   _scrollListener(double value) async {
@@ -410,11 +476,18 @@ class _State extends State<MSUploadImages>
   _otherMediaListener(String task, Map item) {
     switch (task) {
       case 'open':
+        // Determine if this is a document or vehicle image type
+        bool isDocument = _documentImageFieldLabel.any((field) => field['form_document_label'] == item['type']) || 
+                         (item['section'] == 'custom_document_images_field_post');
+                         
         showDialog(
           context: context,
           builder: (builder) => MediaDialog(
             item['name'],
             picture: true,
+            timestamp: item['time'],
+            location: item['location'] ?? '',
+            mediaType: isDocument ? 'document' : 'vehicle',
           ),
         );
         break;
@@ -616,13 +689,9 @@ class _State extends State<MSUploadImages>
     }
 
     if (hasUploadingMedia) {
-      // Wait for uploads to complete with timeout
-      int timeoutSeconds = 60;
-      int elapsedSeconds = 0;
-      
-      while (hasUploadingMedia && elapsedSeconds < timeoutSeconds) {
+      // Wait for uploads to complete without timeout
+      while (hasUploadingMedia) {
         await Future.delayed(const Duration(seconds: 1));
-        elapsedSeconds++;
         
         hasUploadingMedia = false;
         for (var item in _images) {
@@ -632,24 +701,37 @@ class _State extends State<MSUploadImages>
           }
         }
       }
-      
-      // Check if we timed out
-      if (hasUploadingMedia) {
-        widget._pagerController.setButtonProgress(false);
-        ASnackBar.showError(
-          scaffoldMessengerState,
-          'Upload taking too long. Please check your internet connection and try again.',
-        );
-        return;
-      }
     }
     
-    // Check for failed uploads
+    // Debug log current status of all media items
+    for (var item in _images) {
+      log("Media item: ${item['type']}, Status: ${item['status']}, Name: ${item['name']}");
+    }
+    
+    // Check for failed uploads - only consider items that should have been uploaded
     bool hasFailedUploads = false;
     for (var item in _images) {
-      if (item['status'] != Api.success && 
-          !item['name'].toString().startsWith('http') &&
-          item['name'].toString().isNotEmpty) {
+      // Special handling for videos - they might have local paths but still be valid
+      if (item['type'].toString().startsWith('video_')) {
+        // For videos, only consider it failed if status explicitly indicates failure
+        if (item['status'] == Api.defaultError || item['status'] == Api.internetError) {
+          log("Found failed video upload: ${item['type']} with status ${item['status']}");
+          hasFailedUploads = true;
+          break;
+        }
+        // Otherwise skip video status check since successful videos might still have local paths
+        continue;
+      }
+      
+      // For images: Only check status for items that should have an upload
+      // Ignore items with empty names or network URLs which are already uploaded
+      if (item['name'].toString().isEmpty || item['name'].toString().startsWith('http')) {
+        continue;
+      }
+      
+      // Check if any non-network image item has status other than success
+      if (item['status'] != Api.success) {
+        log("Found failed image upload: ${item['type']} with status ${item['status']}");
         hasFailedUploads = true;
         break;
       }

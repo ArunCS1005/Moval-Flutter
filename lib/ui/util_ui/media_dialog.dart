@@ -2,24 +2,31 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:intl/intl.dart';
 
 class MediaDialog extends StatefulWidget {
-
   final String path;
   final bool picture;
+  final String? timestamp; // Added timestamp parameter
+  final String? location; // Added location parameter
+  final String? mediaType; // Added mediaType parameter
 
-  const MediaDialog(this.path, {Key? key, this.picture = true})
-      : super(key: key);
+  const MediaDialog(
+    this.path, {
+    Key? key, 
+    this.picture = true,
+    this.timestamp, // Added timestamp parameter
+    this.location, // Added location parameter
+    this.mediaType, // Added mediaType parameter
+  }) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {
     return _State();
   }
-
 }
 
 class _State extends State<MediaDialog> {
-
   VideoPlayerController? _playerController;
 
   @override
@@ -27,7 +34,6 @@ class _State extends State<MediaDialog> {
     _funVideoInit();
     super.initState();
   }
-
 
   @override
   void dispose() {
@@ -43,9 +49,14 @@ class _State extends State<MediaDialog> {
       child: Stack(
         alignment: Alignment.topRight,
         children: [
-          widget.picture ? _imageFile : _videoFile,
+          Flexible(
+            child: widget.picture ? _imageWithOverlay : _videoFile,
+          ),
           Container(
-            decoration: const BoxDecoration(color: Colors.red, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(180),),),
+            decoration: const BoxDecoration(
+              color: Colors.red, 
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(180)),
+            ),
             child: IconButton(
               iconSize: 20,
               onPressed: _funOnCloseBtn,
@@ -58,15 +69,75 @@ class _State extends State<MediaDialog> {
     );
   }
 
-  get _imageFile =>
-      _networkMedia
-      ? Image.network(widget.path, loadingBuilder: _loadingBuilder, errorBuilder: _errorBuilder,)
-      : Image.file(File(widget.path));
+  // Format timestamp for display
+  String _formatTimestamp(String timestamp) {
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      return DateFormat('dd/MM/yyyy hh:mm a').format(dateTime);
+    } catch (e) {
+      return timestamp; // Return original string if parsing fails
+    }
+  }
 
+  // Image with timestamp and location overlay
+  Widget get _imageWithOverlay {
+    // Check if this is a document by examining type rather than extension
+    bool isDocument = false;
+    
+    // If the media has a type property that indicates it's a document
+    if (widget.mediaType != null && 
+        (widget.mediaType == 'document' || widget.mediaType?.toLowerCase().contains('document') == true)) {
+      isDocument = true;
+    }
+    
+    return Stack(
+      children: [
+        // The image
+        _networkMedia
+          ? Image.network(widget.path, loadingBuilder: _loadingBuilder, errorBuilder: _errorBuilder)
+          : Image.file(File(widget.path)),
+        
+        // Timestamp and location overlay - only shown for images, not documents
+        if (widget.picture && !isDocument && (widget.timestamp != null || widget.location != null))
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (widget.timestamp != null)
+                    Text(
+                      _formatTimestamp(widget.timestamp!),
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (widget.location != null && widget.location!.isNotEmpty)
+                    Text(
+                      widget.location!,
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget _loadingBuilder(BuildContext context, Widget child, ImageChunkEvent? event) {
-
-    if(event == null) {
+    if (event == null) {
       return child;
     }
 
@@ -94,7 +165,6 @@ class _State extends State<MediaDialog> {
     );
   }
 
-
   Widget _errorBuilder(BuildContext context, Object object, StackTrace? trace) {
     return const Center(
       child: Center(
@@ -106,7 +176,6 @@ class _State extends State<MediaDialog> {
       ),
     );
   }
-
 
   get _videoFile => Stack(
     alignment: Alignment.bottomCenter,
@@ -135,7 +204,6 @@ class _State extends State<MediaDialog> {
     ],
   );
 
-
   get _videoLoader => const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -158,10 +226,8 @@ class _State extends State<MediaDialog> {
         ],
   );
 
-
   _funVideoInit() async {
-
-    if(widget.picture) return;
+    if (widget.picture) return;
 
     _playerController = _networkMedia
         ? VideoPlayerController.networkUrl(Uri.parse(widget.path))
@@ -169,21 +235,15 @@ class _State extends State<MediaDialog> {
       ..addListener(_funVideoListener);
     await _playerController?.initialize();
     _updateUi;
-
   }
-
 
   _funVideoListener() {
-
-    if(_playerController!.value.duration.inMilliseconds == _playerController!.value.position.inMilliseconds) {
+    if (_playerController!.value.duration.inMilliseconds == _playerController!.value.position.inMilliseconds) {
       _updateUi;
     }
-
   }
 
-
   _funVideoController () {
-
     if (_playerController!.value.isPlaying) {
       _playerController?.pause();
     } else {
@@ -193,7 +253,6 @@ class _State extends State<MediaDialog> {
     _updateUi;
   }
 
-
   _funOnCloseBtn() {
     Navigator.pop(context);
   }
@@ -201,5 +260,4 @@ class _State extends State<MediaDialog> {
   get _updateUi => setState((){});
 
   get _networkMedia => widget.path.startsWith('http');
-
 }
