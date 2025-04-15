@@ -113,7 +113,7 @@ class _HomeScreen extends State<HomeScreen> with TickerProviderStateMixin {
             child: ImgPager(
               tabs: [
                 IconTabHeaderNew(
-                  'Pending Jobs',
+                  'Pending Claims',
                   _activeIndex == 0,
                   'solid-task.svg',
                 ),

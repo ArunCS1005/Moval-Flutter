@@ -440,13 +440,28 @@ class _State extends State<ImageCaptureField> {
   }
 
   _funAddMedia(Map result) async {
+    // Check if this is a document type
+    bool isDocumentType = widget.dataKey.toLowerCase().contains('document') || 
+                        widget.title.toLowerCase().contains('document');
+    
     for (var item in _images) {
       if (item['type'] == widget.dataKey) {
         item['name'] = result['name'];
-        item['latitude'] = result['latitude'].toString();
-        item['longitude'] = result['longitude'].toString();
-        item['time'] = result['time'];
-        item['updated'] = result['updated'].toString();
+        
+        // For document images, set location and time data to null
+        if (isDocumentType) {
+          item['latitude'] = null;
+          item['longitude'] = null;
+          item['time'] = null;
+          item['updated'] = null;
+        } else {
+          // For vehicle images, use the provided data
+          item['latitude'] = result['latitude'].toString();
+          item['longitude'] = result['longitude'].toString();
+          item['time'] = result['time'];
+          item['updated'] = result['updated'].toString();
+        }
+        
         item['status'] = 'new';
         item['ai_box'] = result['ai_box'];
         item['final_box'] = result['final_box'];

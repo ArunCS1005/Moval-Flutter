@@ -124,7 +124,6 @@ class _State extends State<MSUploadImages>
                     _data,
                     label,
                     _captureController,
-                    isAIEnabled: true,
                     onMediaSaved: (dynamic item) {
                       if (item['name'].startsWith('http') ||
                           item['status'] == Api.success) return;
@@ -181,8 +180,9 @@ class _State extends State<MSUploadImages>
                     label,
                     _data,
                     label,
-                    addDate: false,
                     _captureController,
+                    // Document images don't need date, time and location
+                    addDate: false,
                     onMediaSaved: (dynamic item) {
                       if (item['name'].startsWith('http') ||
                           item['status'] == Api.success) return;
@@ -207,6 +207,8 @@ class _State extends State<MSUploadImages>
                 _data,
                 label,
                 _captureController,
+                // Document images don't need date, time and location
+                addDate: false,
                 onMediaRemoved: (item) {
                   _images.removeWhere((e) => e['type'] == item['type']);
                   _updateUi;
@@ -890,12 +892,17 @@ class _State extends State<MSUploadImages>
     _captureController.invalidate(item['type'], item);
 
     try {
-      // Add location text to the image if needed
-      if (item['type'] != video && item['updated'] == '0') {
+      // Check if this is a document type
+      bool isDocument = _documentImageFieldLabel.any((field) => field['form_document_label'] == item['type']) || 
+                       (item['section'] == 'custom_document_images_field_post') ||
+                       item['type'].toString().toLowerCase().contains('document');
+      
+      // Only add location text to vehicle images, not document images
+      if (item['type'] != video && item['updated'] == '0' && !isDocument) {
         try {
           final placeMark = await placemarkFromCoordinates(
-            double.parse(item['latitude'] ?? '0'),
-            double.parse(item['longitude'] ?? '0'),
+            double.parse(item['latitude']?.toString() ?? '0'),
+            double.parse(item['longitude']?.toString() ?? '0'),
           );
 
           String place =
@@ -906,7 +913,7 @@ class _State extends State<MSUploadImages>
             jsonEncode(
               {
                 'path': item['name'],
-                'location': '${item['time']}\n$place',
+                'location': '${item['time'] ?? ""}\n$place',
                 'forcePortrait': false,
               },
             ),
@@ -916,6 +923,14 @@ class _State extends State<MSUploadImages>
           log("When Adding Failed to get path $e");
           // Continue with upload even if adding location fails
         }
+      }
+      
+      // For document images, use empty strings instead of null to avoid type errors
+      if (isDocument) {
+        item['latitude'] = '0.0';
+        item['longitude'] = '0.0';
+        item['time'] = '';
+        item['location'] = '';
       }
       
       // Check file existence

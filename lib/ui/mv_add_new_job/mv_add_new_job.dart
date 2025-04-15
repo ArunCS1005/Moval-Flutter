@@ -123,7 +123,7 @@ class _AddNewJob extends State<MVAddNewJob> {
             ),
           ),
           Button(
-            'Add Job',
+            'Add Claim',
             progress: _apiCalling,
             onTap: onAddJob,
             margin: const EdgeInsets.fromLTRB(20, 65, 20, 35),
@@ -154,7 +154,7 @@ class _AddNewJob extends State<MVAddNewJob> {
         addJob: 1,
         showAddBtn: false,
         child: Header(
-          'Create New job',
+          'Create New Claim',
           doublePressEnable: true,
           child: _body,
         ),

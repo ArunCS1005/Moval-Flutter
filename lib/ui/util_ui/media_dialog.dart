@@ -49,9 +49,15 @@ class _State extends State<MediaDialog> {
       child: Stack(
         alignment: Alignment.topRight,
         children: [
-          Flexible(
+          // Main content - Image or Video at their natural size
+          Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
             child: widget.picture ? _imageWithOverlay : _videoFile,
           ),
+          // Close button in top right
           Container(
             decoration: const BoxDecoration(
               color: Colors.red, 
@@ -92,7 +98,7 @@ class _State extends State<MediaDialog> {
     
     return Stack(
       children: [
-        // The image
+        // The image at its natural size
         _networkMedia
           ? Image.network(widget.path, loadingBuilder: _loadingBuilder, errorBuilder: _errorBuilder)
           : Image.file(File(widget.path)),

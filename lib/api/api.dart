@@ -1008,13 +1008,7 @@ Future searchJobsList({
           }
         }
         
-        // Compare with backend provided counts
-        dev.log("Total vehicle images (calculated): $vehicleImagesCount");
-        dev.log("Total document images (calculated): $documentImagesCount");
-        dev.log("Total vehicle images (from server): ${result['total_vehicle_images'] ?? 'Not provided'}");
-        dev.log("Total document images (from server): ${result['total_document_images'] ?? 'Not provided'}");
-        dev.log("=============================");
-        
+
         return result;
       } else if (response.statusCode == 401) {
         return authError;
