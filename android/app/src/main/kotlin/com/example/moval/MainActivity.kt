@@ -1,4 +1,4 @@
-package com.example.moval
+package com.movalapp
 
 import io.flutter.embedding.android.FlutterActivity
 

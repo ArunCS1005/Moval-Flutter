@@ -17,8 +17,47 @@ class SubmitConfimationDialog extends StatelessWidget {
         CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(context, true),
           child: const Text(
-            'Confirm 1',
+            'Confirm',
             style: TextStyle(fontSize: 18, color: Colors.green),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class JobSubmittedSuccessDialog extends StatelessWidget {
+  const JobSubmittedSuccessDialog({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoAlertDialog(
+      title: const Text(
+        'Success!',
+        style: TextStyle(fontSize: 18, color: Colors.green),
+      ),
+      content: Column(
+        children: [
+          const SizedBox(height: 10),
+          Icon(
+            Icons.check_circle,
+            color: Colors.green,
+            size: 50,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Claim submitted successfully',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'OK',
+            style: TextStyle(fontSize: 18, color: Colors.blue),
           ),
         ),
       ],
@@ -61,8 +100,21 @@ class _SubmitDataDialogState extends State<SubmitDataDialog> {
                     await submitJobData(context);
                     
                     Navigator.pop(context);
+                    
+                    // Navigate to the pending jobs page
                     Navigator.of(context).popUntil((route) {
                       return route.settings.name == '/pendingJobs' || route.isFirst;
+                    });
+                    
+                    // Show success dialog after navigation
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const JobSubmittedSuccessDialog(),
+                        );
+                      }
                     });
                   } catch (e) {
                     // In case of error, allow the user to retry

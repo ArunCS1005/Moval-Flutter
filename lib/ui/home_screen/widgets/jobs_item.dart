@@ -208,26 +208,6 @@ class _ItemPendingJobsList extends State<JobsItem> {
                               });
                             },
                           ),
-                          // JobItemButtonWidget(
-                          //   imagePath: 'assets/images/pdf.png',
-                          //   badgeLabel: 'ILA WL',
-                          //   onTap: () async {
-                          //     bool isPDFLoaded = (await Navigator.pushNamed(
-                          //           context,
-                          //           Routes.pdfView,
-                          //           arguments: {
-                          //             'title': 'ILA WL PDF',
-                          //             'url': ilaPDFUrl,
-                          //             "type": "ilarwl",
-                          //             'job_id': _data('id'),
-                          //           },
-                          //         ) as bool?) ??
-                          //         false;
-                          //     setState(() {
-                          //       _isILAApproved = isPDFLoaded;
-                          //     });
-                          //   },
-                          // ),
 
                           JobItemButtonWidget(
                             imagePath: 'assets/images/pdf.png',
@@ -254,8 +234,10 @@ class _ItemPendingJobsList extends State<JobsItem> {
                                 bool approved = await _confirmApproveDialog();
                                 if (!approved) return;
 
-                                widget.onResponse?.call('refresh');
+                                // Trigger a hard refresh of both pending claims and To be Approved pages
+                                widget.onResponse?.call('hard_refresh');
 
+                                // Show approval confirmation
                                 ASnackBar.showSnackBar(
                                   scaffoldMessengerState,
                                   'Approved.',

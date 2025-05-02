@@ -237,11 +237,13 @@ Future _getData() async {
       widget.dateController.invalidate();
     } else if (response == 'update') {
       widget.dateController.invalidateByKey(widget.jobType);
+    } else if(response == 'hard_refresh') {
+      // Hard refresh both Pending Claims and To be Approved pages
+      widget.dateController.invalidate();
     } else if(Preference.getStr('offline') == 'reload'){
       Preference.setValue('offline', '');
       _refresh();
     }
-
   }
 
 }
