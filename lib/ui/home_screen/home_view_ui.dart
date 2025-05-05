@@ -14,7 +14,13 @@ class HomeView extends StatefulWidget {
   final int addJob;
   final bool showAddBtn;
 
-  const HomeView({Key? key, this.child, this.selectedTab = 0, this.addJob = 0, this.showAddBtn = true}) : super(key: key);
+  const HomeView({
+    Key? key, 
+    this.child, 
+    this.selectedTab = 0, 
+    this.addJob = 0, 
+    this.showAddBtn = true,
+  }) : super(key: key);
 
   @override
   State<StatefulWidget> createState() => _HomeView();
@@ -43,7 +49,6 @@ class _HomeView extends State<HomeView> {
       floatingActionButton: isShowAddButton(),
     );
   }
-
 
   void _onTapped(int value) {
     if(value == 0){

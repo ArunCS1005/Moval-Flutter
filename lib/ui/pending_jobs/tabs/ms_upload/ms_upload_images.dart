@@ -552,11 +552,17 @@ class _State extends State<MSUploadImages>
   }
 
   Future<void> _getJobFiles({required int jobId}) async {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+    
     ScaffoldMessengerState scaffoldMessengerState =
         ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
 
     final response = await Api(scaffoldMessengerState).getJobFiles(id: jobId);
+
+    // Check again if still mounted after async operation
+    if (!mounted) return;
 
     if (response == Api.defaultError || response == Api.internetError) {
     } else if (response == Api.authError) {
@@ -643,6 +649,9 @@ class _State extends State<MSUploadImages>
   }
 
   _next() async {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+    
     ScaffoldMessengerState scaffoldMessengerState =
         ScaffoldMessenger.of(context);
 
@@ -886,6 +895,9 @@ class _State extends State<MSUploadImages>
   }
 
   Future<bool> _uploadFile(Map item) async {
+    // Check if still mounted before proceeding
+    if (!mounted) return false;
+    
     ScaffoldMessengerState scaffoldMessengerState =
         ScaffoldMessenger.of(context);
     item['status'] = Api.loading;
@@ -1004,4 +1016,16 @@ class _State extends State<MSUploadImages>
 
   get _localSaveJobBasicInfo => LocalJobsDetail.updateJobBasicInfo(
       _data['id'], {'images': _images, 'remark': _getData('remark')});
+
+  _onSuccessfullyUpdate(bool isOffline) async {
+    // Check if still mounted before proceeding
+    if (!mounted) return;
+    
+    NavigatorState navigatorState = Navigator.of(context);
+    
+    LocalJobsStatus.saveJobStatusIsOffline(
+        _data['id'], LocalJobsStatus.basicInfo, isOffline);
+    _localSaveJobBasicInfo;
+    navigatorState.pushReplacementNamed(Routes.homeScreen);
+  }
 }

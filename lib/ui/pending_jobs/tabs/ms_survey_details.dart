@@ -988,8 +988,8 @@ class _State extends State<MSSurveyDetails>
                       isEnabled: false,
                     ),
                     SearchDropDown(
-                      'Select SOP',
-                      'selected_sop',
+                      'Select Insurer',
+                      'selected_insurer',
                       _data,
                       _sopList,
                       controller: _searchDropDownController,

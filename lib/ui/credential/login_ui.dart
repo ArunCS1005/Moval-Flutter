@@ -54,10 +54,25 @@ class _LoginState extends State<Login> {
     _getFirebaseToken();
   }
 
-  void _getFirebaseToken() {
-    FirebaseMessaging.instance.getToken().then((value) {
-      Preference.setValue(Preference.firebaseToken, value);
-    });
+  void _getFirebaseToken() async {
+    try {
+      // Get a fresh token
+      String? token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        print("Firebase token on login: $token");
+        Preference.setValue(Preference.firebaseToken, token);
+        
+        // Set up token refresh listener early
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+          print("Firebase token refreshed: $newToken");
+          Preference.setValue(Preference.firebaseToken, newToken);
+        });
+      } else {
+        print("Failed to get Firebase token");
+      }
+    } catch (e) {
+      print("Error getting Firebase token: $e");
+    }
   }
 
   @override

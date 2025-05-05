@@ -171,7 +171,7 @@ class Api {
     }
   }
 
-Future searchJobsList({
+  Future searchJobsList({
     required String platform,
     required String status,
     String page = '',
@@ -183,55 +183,90 @@ Future searchJobsList({
     bool onlyOfflineJobs = false,
   }) async {
     try {
-      String uri =
-          "${(platform == platformTypeMS) ? jobsMSList : jobsMVList}?${_encodeUrl(
-        {
-          page.isEmpty ? 'all' : 'page': page.isEmpty ? '1' : page,
-          'status': status,
-          'search_keyword': searchBy,
-          'from_date': fromDate,
-          'to_date': toDate,
-          'employee_id': employeeId,
-          'client_id': clientId,
-          'is_offline': onlyOfflineJobs ? 'yes' : '',
-          if (platform == platformTypeMS)
-            'role': Preference.getStr(Preference.userRole),
-        },
-      )}";
-
-      print("Constructed URI: $uri"); // Print the final URI
-
-      final userToken = Preference.getStr(Preference.userToken);
-      print("User Token: $userToken"); // Print the token
-
+      // Explicitly create an ordered map to ensure parameters are consistent
+      Map<String, String> params = {};
+      
+      // Add required parameters first
+      params[page.isEmpty ? 'all' : 'page'] = page.isEmpty ? '1' : page;
+      params['status'] = status;
+      
+      // Add platform-specific parameters
+      if (platform == platformTypeMS) {
+        params['role'] = Preference.getStr(Preference.userRole);
+      }
+      
+      // Add conditional parameters if they have values
+      if (searchBy.trim().isNotEmpty) {
+        params['search_keyword'] = searchBy.trim();
+      }
+      
+      if (fromDate.isNotEmpty) {
+        params['from_date'] = fromDate;
+      }
+      
+      if (toDate.isNotEmpty) {
+        params['to_date'] = toDate;
+      }
+      
+      if (employeeId.isNotEmpty) {
+        params['employee_id'] = employeeId;
+      }
+      
+      if (clientId.isNotEmpty) {
+        params['client_id'] = clientId;
+      }
+      
+      if (onlyOfflineJobs) {
+        params['is_offline'] = 'yes';
+      }
+      
+      // Construct the URL explicitly for better debug control
+      String baseUrl = (platform == platformTypeMS) ? jobsMSList : jobsMVList;
+      List<String> queryParts = [];
+      
+      params.forEach((key, value) {
+        if (value.isNotEmpty) {
+          queryParts.add('$key=${Uri.encodeComponent(value)}');
+        }
+      });
+      
+      String queryString = queryParts.join('&');
+      String fullUrl = '$baseUrl?$queryString';
+      
+      print("SEARCH API REQUEST: $fullUrl");
+      
       final response = await http.get(
-        Uri.parse(uri),
+        Uri.parse(fullUrl),
         headers: {
-        'Authorization': userToken, 'Accept': 'application/json'},
+          'Authorization': Preference.getStr(Preference.userToken),
+          'Accept': 'application/json',
+        },
       );
-
-      // Log various details
-      print('URL- $uri');
-      print('Headers- ${response.headers}');
-      print('Response Code- ${response.statusCode}');
-      print('Response Body- ${response.body}');
-
-      // Handle response
+      
+      print("SEARCH API RESPONSE CODE: ${response.statusCode}");
+      
       if (response.statusCode == 200) {
-        print('Parsed Result: ${jsonDecode(response.body)['result']}');
-        return jsonDecode(response.body)['result'];
+        final jsonResult = jsonDecode(response.body);
+        final resultValues = jsonResult['result']['values'];
+        
+        print("SEARCH API FOUND: ${resultValues.length} items");
+        
+        if (resultValues.isEmpty) {
+          return Api.noData;
+        }
+        
+        return jsonResult['result'];
       } else if (response.statusCode == 401) {
-        print('Auth Error');
         return authError;
       } else {
-        print('Default Error');
+        print("SEARCH API ERROR: ${response.body}");
         return defaultError;
       }
     } on SocketException {
-      print('Internet Error');
+      print("SEARCH API: Network error");
       return internetError;
     } catch (e) {
-      print('Exception Error: $e');
+      print("SEARCH API EXCEPTION: $e");
       return defaultError;
     }
   }
@@ -1269,13 +1304,18 @@ Future searchJobsList({
   }
 
   _encodeUrl(Map<String, dynamic> map) {
-    String encoded = '';
-
+    // Create a filtered list of parameters (only include non-empty values)
+    List<String> validParams = [];
+    
     map.forEach((k, v) {
-      encoded = '$encoded&$k=$v';
+      // Only include parameters with non-empty values
+      if (v != null && v.toString().isNotEmpty) {
+        validParams.add('$k=${Uri.encodeComponent(v.toString())}');
+      }
     });
-
-    return encoded;
+    
+    // Join with ampersands to create a valid query string
+    return validParams.join('&');
   }
 
   apiLog(Object? object, {flag = false}) {

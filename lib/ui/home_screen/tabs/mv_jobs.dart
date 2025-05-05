@@ -66,7 +66,7 @@ class _State extends State<MVJobs> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  get _funUpdateUi => setState(() {});
+  get _funUpdateUi => mounted ? setState(() {}) : null;
 
   _scrollListener() async {
 

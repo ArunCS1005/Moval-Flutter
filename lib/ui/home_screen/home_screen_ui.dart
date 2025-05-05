@@ -1,9 +1,5 @@
-
-
-
-
-
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -11,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moval/api/urls.dart';
+import 'package:moval/firebase_options.dart';
 import 'package:moval/ui/home_screen/home_view_ui.dart';
 import 'package:moval/ui/home_screen/tabs/mv_jobs.dart';
 import 'package:moval/util/a_notification.dart';
@@ -66,12 +63,116 @@ class _HomeScreen extends State<HomeScreen> with TickerProviderStateMixin {
     setState(() {});
   }
 
-  _initialiseFirebase () async {
-    await Firebase.initializeApp();
+  _initialiseFirebase() async {
+    try {
+      // Initialize Firebase with the correct options
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      
+      // Request notification permissions
+      await _notification.requestPermissions();
+      
+      // Set up foreground notification handler
+      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    FirebaseMessaging.instance.getInitialMessage().then(_notification.onNotification);
-    FirebaseMessaging.onMessage.listen(_notification.onNotification);
-    FirebaseMessaging.onMessageOpenedApp.listen(_notification.onNotification);
+      // Handle initial message (app opened from terminated state)
+      FirebaseMessaging.instance.getInitialMessage().then((message) {
+        if (message != null) {
+          log("Initial message: ${message.messageId}");
+          _notification.onNotification(message);
+        }
+      });
+      
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((message) {
+        log("Foreground message received: ${message.messageId}");
+        _notification.onNotification(message);
+      });
+      
+      // Handle when the app is opened from background via a notification
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        log("App opened from background via notification: ${message.messageId}");
+        _notification.onNotification(message);
+      });
+      
+      // Get the token for this device
+      String? token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        log("Firebase Token: $token");
+        final oldToken = Preference.getStr(Preference.firebaseToken);
+        
+        // Only update if token has changed
+        if (oldToken != token) {
+          Preference.setValue(Preference.firebaseToken, token);
+          
+          // Send the updated token to your backend
+          _updateTokenOnServer(token);
+        }
+      }
+      
+      // Set up token refresh listener
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        log("Firebase Token refreshed: $newToken");
+        Preference.setValue(Preference.firebaseToken, newToken);
+        
+        // Send the updated token to your backend
+        _updateTokenOnServer(newToken);
+      });
+      
+      // Subscribe to topics based on user role
+      _subscribeToTopics();
+      
+    } catch (e) {
+      log("Error initializing Firebase: $e");
+    }
+  }
+  
+  Future<void> _updateTokenOnServer(String token) async {
+    // Get user ID and role
+    final userId = Preference.getStr(Preference.userId);
+    if (userId.isEmpty) return;
+    
+    try {
+      // TODO: You would typically call your API here to update the token on the server
+      log("Token updated on server for user $userId: $token");
+    } catch (e) {
+      log("Error updating token on server: $e");
+    }
+  }
+  
+  Future<void> _subscribeToTopics() async {
+    try {
+      // Get user role and ID
+      final role = Preference.getStr(Preference.userRole);
+      
+      // The userId might be stored as an int, so we need to handle that
+      final userIdValue = Preference.value(Preference.userId);
+      final userId = userIdValue != null ? userIdValue.toString() : "";
+      
+      if (role.isNotEmpty) {
+        // Subscribe to role-specific topic
+        await FirebaseMessaging.instance.subscribeToTopic("role_$role");
+        log("Subscribed to topic: role_$role");
+        
+        // Subscribe to user-specific topic
+        if (userId.isNotEmpty) {
+          final userIdTopic = "user_$userId";
+          await FirebaseMessaging.instance.subscribeToTopic(userIdTopic);
+          log("Subscribed to topic: $userIdTopic");
+        }
+        
+        // Subscribe to general notifications topic
+        await FirebaseMessaging.instance.subscribeToTopic("all_users");
+        log("Subscribed to topic: all_users");
+      }
+    } catch (e) {
+      log("Error subscribing to topics: $e");
+    }
   }
 
   _showMessageIfExist() async {

@@ -182,8 +182,8 @@ class _AddNewJob extends State<MSAddNewJob> {
                   controller: _editTextController,
                 ),
                 SearchDropDown(
-                  'Select Client',
-                  'selected_client',
+                  'Select Insurer',
+                  'selected_insurer',
                   _data,
                   _clientList,
                   controller: _searchDropDownController,
@@ -223,8 +223,8 @@ class _AddNewJob extends State<MSAddNewJob> {
                   savedDateFormat: 'yyyy-MM-dd HH:mm',
                 ),
                 SearchDropDown(
-                  'Select SOP',
-                  'selected_sop',
+                  'Select Survey Checklist',
+                  'selected_survey_checklist',
                   _data,
                   _sopList,
                   controller: _searchDropDownController,

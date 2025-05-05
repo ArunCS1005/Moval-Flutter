@@ -52,17 +52,34 @@ class _ItemPendingJobsList extends State<JobsItem> {
         tilePadding: EdgeInsets.zero,
         childrenPadding: EdgeInsets.zero,
         shape: Border.all(color: Colors.transparent),
-        trailing: _isPendingPage()
-            ? const SizedBox()
-            : const Padding(
-                padding: EdgeInsets.all(2.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Icon(Icons.more_horiz),
-                  ],
-                ),
-              ),
+        trailing: Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const SizedBox(height: 8),
+              // Three dots in middle only for non-pending jobs
+              // Cancel button for pending jobs
+              _isPendingPage() 
+                ? InkWell(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Job cancellation requested"),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.cancel_outlined,
+                      color: Colors.red,
+                    ),
+                  )
+                : const Icon(Icons.more_horiz),
+            ],
+          ),
+        ),
         onExpansionChanged: (bool isExpanded) {
           if (_isPendingPage()) {
             _openJobsDetail();

@@ -36,11 +36,22 @@ class _SearchUiState extends State<SearchUi> {
   String _clientId = '';
   String _employeeId = '';
   bool _offlineJobs = false;
+  bool _isMVJobs = true; // Track whether we're on MV or MS platform
+  
+  // For debounce
+  DateTime? _lastSearchTime;
+  final _searchDebounceMs = 500; // 500ms debounce time
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Get platform from shared preferences
+      String credentialStr = Preference.getStr(Preference.credential);
+      if (credentialStr.isNotEmpty) {
+        _isMVJobs = (jsonDecode(credentialStr)['platform'] == 0);
+      }
+      
       switch (Preference.getInt(Preference.currentJob)) {
         case 0:
           _currentJob = pending;
@@ -198,18 +209,36 @@ class _SearchUiState extends State<SearchUi> {
         ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
 
+    // Debug log to track search parameters
+    print("SEARCH PARAMS - Text: '$value', ClientID: '$_clientId', EmployeeID: '$_employeeId', OfflineOnly: $_offlineJobs");
+    print("SEARCH DATES - From: '${Preference.getStr(Preference.fromDate)}', To: '${Preference.getStr(Preference.toDate)}'");
+
     // Ensure the search term is different before proceeding
     if (value.isNotEmpty && value == _searchFor) return;
-  
+
+    // Debounce logic
+    DateTime now = DateTime.now();
+    if (_lastSearchTime != null &&
+        now.difference(_lastSearchTime!) < Duration(milliseconds: _searchDebounceMs)) {
+      return;
+    }
+    _lastSearchTime = now;
+
     _searchFor = value; // Update the search term
     _apiStatus = Api.loading; // Set the loading status
     _dataList.clear(); // Clear previous results
     setState(() {}); // Update UI
 
+    // Force search term to be at least 2 characters for better filtering
+    String searchTerm = _searchFor.trim();
+    if (searchTerm.length == 1) {
+      searchTerm = ""; // Clear very short search terms
+    }
+
     final response = await Api(scaffoldMessengerState).searchJobsList(
-      platform: platformTypeMV,
+      platform: _isMVJobs ? platformTypeMV : platformTypeMS,
       status: _currentJob,
-      searchBy: _searchFor,
+      searchBy: searchTerm,
       fromDate: Preference.getStr(Preference.fromDate),
       toDate: Preference.getStr(Preference.toDate),
       employeeId: _employeeId,
@@ -217,12 +246,23 @@ class _SearchUiState extends State<SearchUi> {
       onlyOfflineJobs: _offlineJobs,
     );
 
+    // Debug log for response
+    if (response != Api.defaultError && 
+        response != Api.internetError && 
+        response != Api.authError && 
+        response != Api.noData) {
+      print("SEARCH RESULTS - Found: ${response["values"]?.length ?? 0} items");
+    }
+
     if (response == Api.defaultError) {
       _apiStatus = response;
     } else if (response == Api.internetError) {
       _apiStatus = response;
     } else if (response == Api.authError) {
       UiUtils.authFailed(navigatorState);
+    } else if (response == Api.noData) {
+      _apiStatus = Api.success; // Set success status
+      _dataList.clear(); // Ensure list is empty
     } else {
       _apiStatus = Api.success; // Set success status
       _dataList.clear(); // Clear the list before adding new results
@@ -231,7 +271,6 @@ class _SearchUiState extends State<SearchUi> {
 
     setState(() {}); // Refresh the UI
   }
-
 
   _body() {
     /// Error
@@ -257,7 +296,7 @@ class _SearchUiState extends State<SearchUi> {
           {
             ..._dataList[index],
             'job_status': _currentJob,
-            'platform': platformTypeMV,
+            'platform': _isMVJobs ? platformTypeMV : platformTypeMS,
           },
           onResponse: _onResponse,
         ),
@@ -282,7 +321,7 @@ class _SearchUiState extends State<SearchUi> {
         ScaffoldMessenger.of(context);
     NavigatorState navigatorState = Navigator.of(context);
     final response = await Api(scaffoldMessengerState).getClientList(
-      platform: platformTypeMV,
+      platform: _isMVJobs ? platformTypeMV : platformTypeMS,
     );
 
     if (response == Api.defaultError) {
@@ -356,6 +395,8 @@ class _AppBar extends StatelessWidget {
                     isDense: true,
                     prefixIcon: _prefixIcon),
                 onChanged: onChanged,
+                textInputAction: TextInputAction.search,
+                autofocus: true, // Auto-focus the search field
               ),
             ),
           ),
